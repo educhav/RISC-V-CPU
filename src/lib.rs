@@ -91,50 +91,6 @@ impl CPU {
                     }
                     6 => self.imm_op(rd as usize, rs1 as usize, CPU::sext(imm12 as u32, 0xfffff800), |rs1: i32, imm: i32| { rs1 | imm }),
                     7 => self.imm_op(rd as usize, rs1 as usize, CPU::sext(imm12 as u32, 0xfffff800), |rs1: i32, imm: i32| { rs1 & imm }),
-                    // 0 => {
-                    //     let imm = ((inst & IMM12_MASK) as i32) >> 20;
-                    //     // self.addi(rd.try_into().unwrap(), rs1.try_into().unwrap(), imm.try_into().unwrap());
-                    //     self.imm_op(rd as usize, rs1 as usize, imm, |rs1: i32, imm: i32| { rs1 + imm })
-                    // }
-                    // 1 => {
-                    //     let imm = (inst & IMM5_MASK) >> 20;
-                    //     self.slli(rd.try_into().unwrap(), rs1.try_into().unwrap(), imm.try_into().unwrap());
-                    // }
-                    // 2 => {
-                    //     let imm = ((inst & IMM12_MASK) as i32) >> 20;
-                    //     self.slti(rd.try_into().unwrap(), rs1.try_into().unwrap(), imm.try_into().unwrap());
-                    // }
-                    // 3 => {
-                    //     let imm = (inst & IMM12_MASK) >> 20;
-                    //     self.slti(rd.try_into().unwrap(), rs1.try_into().unwrap(), imm.try_into().unwrap());
-                    // }
-                    // 4 => {
-                    //     let imm = ((inst & IMM12_MASK) as i32) >> 20;
-                    //     self.xori(rd.try_into().unwrap(), rs1.try_into().unwrap(), imm.try_into().unwrap());
-                    // }
-                    // 5 => {
-                    //     let imm = (inst & IMM5_MASK) >> 20;
-                    //     let funct7 = (inst & FUNCT7_MASK) >> 25;
-                    //     let arithmetic: bool;
-                    //     match funct7 {
-                    //         0 => {
-                    //             arithmetic = false;
-                    //         }
-                    //         32 => {
-                    //             arithmetic = true;
-                    //         }
-                    //         _ => panic!("CPU exception: Unrecognized funct7")
-                    //     }
-                    //     self.srli(rd.try_into().unwrap(), rs1.try_into().unwrap(), imm.try_into().unwrap(), arithmetic);
-                    // }
-                    // 6 => {
-                    //     let imm = ((inst & IMM12_MASK) as i32) >> 20;
-                    //     self.ori(rd.try_into().unwrap(), rs1.try_into().unwrap(), imm.try_into().unwrap());
-                    // }
-                    // 7 => {
-                    //     let imm = ((inst & IMM12_MASK) as i32) >> 20;
-                    //     self.andi(rd.try_into().unwrap(), rs1.try_into().unwrap(), imm.try_into().unwrap());
-                    // }
                     _ => panic!("CPU exception: unrecognized funct3")
                 }
             }
@@ -173,7 +129,6 @@ impl CPU {
         }
         self.registers[0] = 0;
     }
-
     pub fn rr_op<F>(&mut self, rd: usize, rs1: usize, rs2: usize, op: F) 
     where 
         F: Fn(i32, i32) -> i32 
@@ -185,31 +140,6 @@ impl CPU {
         F: Fn(i32, i32) -> i32 
     {
         self.registers[rd] = op(self.registers[rs1], imm);
-    }
-    pub fn addi(&mut self, rd: usize, rs1: usize, imm: i32) {
-        self.registers[rd] = self.registers[rs1] + imm;
-    }
-    pub fn slli(&mut self, rd: usize, rs1: usize, imm: i32) {
-        self.registers[rd] = self.registers[rs1] << imm;
-    }
-    pub fn slti(&mut self, rd: usize, rs1: usize, imm: i32) {
-        self.registers[rd] = if self.registers[rs1] < imm { 1 } else { 0 };
-    }
-    pub fn xori(&mut self, rd: usize, rs1: usize, imm: i32) {
-        self.registers[rd] = self.registers[rs1] ^ imm;
-    }
-    pub fn srli(&mut self, rd: usize, rs1: usize, imm: i32, arithmetic: bool) {
-        if arithmetic {
-            self.registers[rd] = self.registers[rs1] >> imm;
-            return;
-        }
-        self.registers[rd] = ((self.registers[rs1] as u32) >> imm) as i32;
-    }
-    pub fn ori(&mut self, rd: usize, rs1: usize, imm: i32) {
-        self.registers[rd] = self.registers[rs1] | imm;
-    }
-    pub fn andi(&mut self, rd: usize, rs1: usize, imm: i32) {
-        self.registers[rd] = self.registers[rs1] & imm;
     }
 }
 
