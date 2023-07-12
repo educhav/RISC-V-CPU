@@ -92,21 +92,21 @@ impl CPU {
                 let imm12 = (inst & IMM12_MASK) >> 20;
                 let imm5 = (inst & IMM5_MASK) >> 20;
                 match funct3 {
-                    0 => self.imm_op(rd as usize, rs1 as usize, CPU::sext(imm12 as u32, 0xfffff800), |rs1: i32, imm: i32| { rs1 + imm }),
-                    1 => self.imm_op(rd as usize, rs1 as usize, imm5 as i32, |rs1: i32, imm: i32| { rs1 << imm }),
-                    2 => self.imm_op(rd as usize, rs1 as usize, CPU::sext(imm12 as u32, 0xfffff800), |rs1: i32, imm: i32| { if rs1 < imm { 1 } else { 0 }}),
-                    3 => self.imm_op(rd as usize, rs1 as usize, imm12 as i32, |rs1: i32, imm: i32| { if rs1 < imm { 1 } else { 0 }}),
-                    4 => self.imm_op(rd as usize, rs1 as usize, CPU::sext(imm12 as u32, 0xfffff800), |rs1: i32, imm: i32| { rs1 ^ imm }),
+                    0 => self.imm_op(rd, rs1, CPU::sext(imm12 as u32, 0xfffff800), |rs1: i32, imm: i32| { ((rs1 as i64) + (imm as i64)) as i32 }),
+                    1 => self.imm_op(rd, rs1, imm5 as i32, |rs1: i32, imm: i32| { rs1 << imm }),
+                    2 => self.imm_op(rd, rs1, CPU::sext(imm12 as u32, 0xfffff800), |rs1: i32, imm: i32| { if rs1 < imm { 1 } else { 0 }}),
+                    3 => self.imm_op(rd, rs1, imm12 as i32, |rs1: i32, imm: i32| { if (rs1 as u32) < (imm as u32) { 1 } else { 0 }}),
+                    4 => self.imm_op(rd, rs1, CPU::sext(imm12 as u32, 0xfffff800), |rs1: i32, imm: i32| { rs1 ^ imm }),
                     5 => {
                         let funct7 = (inst & FUNCT7_MASK) >> 25;
                         match funct7 {
-                            0 => self.imm_op(rd as usize, rs1 as usize, imm5 as i32, |rs1: i32, imm: i32| { ((rs1 as u32) >> imm) as i32 }),
-                            32 => self.imm_op(rd as usize, rs1 as usize, imm5 as i32, |rs1: i32, imm: i32| { rs1 >> imm }),
+                            0 => self.imm_op(rd, rs1, imm5 as i32, |rs1: i32, imm: i32| { ((rs1 as u32) >> imm) as i32 }),
+                            32 => self.imm_op(rd, rs1, imm5 as i32, |rs1: i32, imm: i32| { rs1 >> imm }),
                             _ => panic!("CPU exception: unrecognized funct7")
                         }
                     }
-                    6 => self.imm_op(rd as usize, rs1 as usize, CPU::sext(imm12 as u32, 0xfffff800), |rs1: i32, imm: i32| { rs1 | imm }),
-                    7 => self.imm_op(rd as usize, rs1 as usize, CPU::sext(imm12 as u32, 0xfffff800), |rs1: i32, imm: i32| { rs1 & imm }),
+                    6 => self.imm_op(rd, rs1, CPU::sext(imm12 as u32, 0xfffff800), |rs1: i32, imm: i32| { rs1 | imm }),
+                    7 => self.imm_op(rd, rs1, CPU::sext(imm12 as u32, 0xfffff800), |rs1: i32, imm: i32| { rs1 & imm }),
                     _ => panic!("CPU exception: unrecognized funct3")
                 }
             }
@@ -120,24 +120,24 @@ impl CPU {
                 match funct3 {
                     0 => {
                         match funct7 {
-                            0 => self.rr_op(rd as usize, rs1 as usize, rs2 as usize, |rs1: i32, rs2: i32| { ((rs1 as i64) + (rs2 as i64)) as i32 }),
-                            32 => self.rr_op(rd as usize, rs1 as usize, rs2 as usize, |rs1: i32, rs2: i32| { ((rs1 as i64) - (rs2 as i64)) as i32 }),
+                            0 => self.rr_op(rd, rs1, rs2, |rs1: i32, rs2: i32| { ((rs1 as i64) + (rs2 as i64)) as i32 }),
+                            32 => self.rr_op(rd, rs1, rs2, |rs1: i32, rs2: i32| { ((rs1 as i64) - (rs2 as i64)) as i32 }),
                             _ => panic!("CPU exception: unrecognized funct7")
                         }
                     }
-                    1 => self.rr_op(rd as usize, rs1 as usize, rs2 as usize, |rs1: i32, rs2: i32| { rs1 << (rs2 & 0x0000001f) }),
-                    2 => self.rr_op(rd as usize, rs1 as usize, rs2 as usize, |rs1: i32, rs2: i32| { if rs1 < rs2 { 1 } else { 0 } }),
-                    3 => self.rr_op(rd as usize, rs1 as usize, rs2 as usize, |rs1: i32, rs2: i32| { if (rs1 as u32) < (rs2 as u32) { 1 } else { 0 } }),
-                    4 => self.rr_op(rd as usize, rs1 as usize, rs2 as usize, |rs1: i32, rs2: i32| { rs1 ^ rs2 }),
+                    1 => self.rr_op(rd, rs1, rs2, |rs1: i32, rs2: i32| { rs1 << (rs2 & 0x0000001f) }),
+                    2 => self.rr_op(rd, rs1, rs2, |rs1: i32, rs2: i32| { if rs1 < rs2 { 1 } else { 0 } }),
+                    3 => self.rr_op(rd, rs1, rs2, |rs1: i32, rs2: i32| { if (rs1 as u32) < (rs2 as u32) { 1 } else { 0 } }),
+                    4 => self.rr_op(rd, rs1, rs2, |rs1: i32, rs2: i32| { rs1 ^ rs2 }),
                     5 => {
                         match funct7 {
-                            0 => self.rr_op(rd as usize, rs1 as usize, rs2 as usize, |rs1: i32, rs2: i32| { ((rs1 as u32) >> (rs2 & 0x0000001f)) as i32 }),
-                            32 => self.rr_op(rd as usize, rs1 as usize, rs2 as usize, |rs1: i32, rs2: i32| { rs1 >> (rs2 & 0x0000001f) }),
+                            0 => self.rr_op(rd, rs1, rs2, |rs1: i32, rs2: i32| { ((rs1 as u32) >> (rs2 & 0x0000001f)) as i32 }),
+                            32 => self.rr_op(rd, rs1, rs2, |rs1: i32, rs2: i32| { rs1 >> (rs2 & 0x0000001f) }),
                             _ => panic!("Unrecognized funct7")
                         }
                     }
-                    6 => self.rr_op(rd as usize, rs1 as usize, rs2 as usize, |rs1: i32, rs2: i32| { rs1 | rs2 }),
-                    7 => self.rr_op(rd as usize, rs1 as usize, rs2 as usize, |rs1: i32, rs2: i32| { rs1 & rs2 }),
+                    6 => self.rr_op(rd, rs1, rs2, |rs1: i32, rs2: i32| { rs1 | rs2 }),
+                    7 => self.rr_op(rd, rs1, rs2, |rs1: i32, rs2: i32| { rs1 & rs2 }),
                     _ => panic!("CPU exception: unrecognized funct3")
                 }
             }
@@ -199,13 +199,13 @@ impl CPU {
         }
         self.registers[0] = 0;
     }
-    pub fn rr_op<F>(&mut self, rd: usize, rs1: usize, rs2: usize, op: F) 
+    pub fn rr_op<F>(&mut self, rd: u32, rs1: u32, rs2: u32, op: F) 
     where F: Fn(i32, i32) -> i32 {
-        self.registers[rd] = op(self.registers[rs1], self.registers[rs2]);
+        self.registers[rd as usize] = op(self.registers[rs1 as usize], self.registers[rs2 as usize]);
     }
-    pub fn imm_op<F>(&mut self, rd: usize, rs1: usize, imm: i32, op: F) 
+    pub fn imm_op<F>(&mut self, rd: u32, rs1: u32, imm: i32, op: F) 
     where F: Fn(i32, i32) -> i32 {
-        self.registers[rd] = op(self.registers[rs1], imm);
+        self.registers[rd as usize] = op(self.registers[rs1 as usize], imm);
     }
 }
 
@@ -274,19 +274,24 @@ mod tests {
         inst |= funct7 << 25;
         return inst;
     }
-    fn compose_s(opcode: u32, mut funct3: u32, mut rs2: u32, imm: u32, mut rs1: u32) -> u32 {
+    fn compose_s(opcode: u32, funct3: u32, rs2: u32, imm: u32, rs1: u32) -> u32 {
         let mut inst = 0;
         inst |= opcode;
         let imm_4_0 = (imm & 0x0000001f) << 7;
         inst |= imm_4_0;
-        funct3 = funct3 << 12;
-        inst |= funct3;
-        rs1 = rs1 << 15;
-        inst |= rs1;
-        rs2 = rs2 << 20;
-        inst |= rs2;
+        inst |= funct3 << 12;
+        inst |= rs1 << 15;
+        inst |= rs2 << 20;
         let imm_11_5 = (imm & 0x0000001f) << 25;
         inst |= imm_11_5;
+        return inst;
+    }
+
+    fn compose_u(opcode: u32, rd: u32, imm: i32) -> u32 {
+        let mut inst = 0;
+        inst |= opcode;
+        inst |= rd << 7;
+        inst |= (imm << 12) as u32;
         return inst;
     }
 
@@ -330,10 +335,10 @@ mod tests {
         cpu.decode_execute(inst);
         assert_eq!(0x7ff00000, cpu.registers[1]);
 
+        // overflow test:
         // add x1, x1, x1
         let inst = compose_rr(51, 0, 0, 1, 1, 1);
         cpu.decode_execute(inst);
-        // assert_eq!(0, cpu.registers[1]);
     }
 
     #[test]
@@ -401,11 +406,150 @@ mod tests {
         cpu.decode_execute(inst);
         assert_eq!(0, cpu.registers[1]);
 
-        // slti x1, x0, 3
-        let inst = compose_imm(19, 2, 1, 0, 3);
+        // addi x5, x5, -15
+        let inst = compose_imm(19, 0, 5, 5, -15);
+        cpu.decode_execute(inst);
+        assert_eq!(-15, cpu.registers[5]);
+
+        // addi x12, x12, -20
+        let inst = compose_imm(19, 0, 12, 12, -20);
+        cpu.decode_execute(inst);
+        assert_eq!(-20, cpu.registers[12]);
+
+        // slt x1, x12, x5
+        let inst = compose_rr(51, 2, 0, 1, 12, 5);
         cpu.decode_execute(inst);
         assert_eq!(1, cpu.registers[1]);
     }
+    #[test]
+    fn test_sltu() {
+        let mut cpu = setup_cpu();
+
+        // sltu x1, x0, x1
+        let inst = compose_rr(51, 3, 0, 1, 0, 1);
+        cpu.decode_execute(inst);
+        assert_eq!(0, cpu.registers[1]);
+
+        // addi x1, x1, -15
+        let inst = compose_imm(19, 0, 1, 1, -15);
+        cpu.decode_execute(inst);
+        assert_eq!(-15, cpu.registers[1]);
+
+        // sltu x1, x0, x1
+        let inst = compose_rr(51, 3, 0, 1, 0, 1);
+        cpu.decode_execute(inst);
+        assert_eq!(1, cpu.registers[1]);
+    }
+
+    #[test]
+    fn test_xor() {
+        let mut cpu = setup_cpu();
+
+        // addi x1, x0, 3
+        let inst = compose_imm(19, 0, 1, 0, 3);
+        cpu.decode_execute(inst);
+        assert_eq!(3, cpu.registers[1]);
+
+        // addi x5, x0, -1
+        let inst = compose_imm(19, 0, 5, 0, -1);
+        cpu.decode_execute(inst);
+        assert_eq!(-1, cpu.registers[5]);
+
+        // xor x1, x1, x5
+        let inst = compose_rr(51, 4, 0, 1, 1, 5);
+        cpu.decode_execute(inst);
+        assert_eq!(0xfffffffc, cpu.registers[1] as u32);
+
+        // addi x1, x0, 3
+        let inst = compose_imm(19, 0, 1, 0, 3);
+        cpu.decode_execute(inst);
+        assert_eq!(3, cpu.registers[1]);
+    }
+
+    #[test]
+    fn test_srl() {
+        let mut cpu = setup_cpu();
+        // addi x1, x0, 3 (x1 = 3)
+        let inst = compose_imm(19, 0, 1, 0, 3);
+        cpu.decode_execute(inst);
+        assert_eq!(3, cpu.registers[1]);
+
+        // addi x5, x0, 1 (x5 = 1)
+        let inst = compose_imm(19, 0, 5, 0, 1);
+        cpu.decode_execute(inst);
+        assert_eq!(1, cpu.registers[5]);
+
+        // srl x1, x1, x5 ( x1 = x1 >> x5)
+        let inst = compose_rr(51, 5, 0, 1, 1, 5);
+        cpu.decode_execute(inst);
+        assert_eq!(1, cpu.registers[1]);
+
+        // addi x1, x0, 64 (x1 = 64)
+        let inst = compose_imm(19, 0, 1, 0, 64);
+        cpu.decode_execute(inst);
+        assert_eq!(64, cpu.registers[1]);
+
+        // srl x5, x5, x1 (x1 = x5 >> x1)
+        let inst = compose_rr(51, 5, 0, 5, 5, 1);
+        cpu.decode_execute(inst);
+        assert_eq!(1, cpu.registers[5]);
+    }
+
+    #[test]
+    fn test_srla() {
+        let mut cpu = setup_cpu();
+        // addi x1, x0, -1 (x1 = -1)
+        let inst = compose_imm(19, 0, 1, 0, -1);
+        cpu.decode_execute(inst);
+        assert_eq!(-1, cpu.registers[1]);
+
+        // addi x5, x0, 1 (x5 = 1)
+        let inst = compose_imm(19, 0, 5, 0, 1);
+        cpu.decode_execute(inst);
+        assert_eq!(1, cpu.registers[5]);
+
+        // srla x1, x1, x5 ( x1 = x1 >> x5)
+        let inst = compose_rr(51, 5, 32, 1, 1, 5);
+        cpu.decode_execute(inst);
+        // 0xffffffff >> 1 = 0xffffffff
+        // 0x7fffffff
+        assert_eq!(-1, cpu.registers[1]);
+
+    }
+
+    #[test]
+    fn test_or() {
+        let mut cpu = setup_cpu();
+
+        // addi x12, x12, -1
+        let inst = compose_imm(19, 0, 12, 12, -1);
+        cpu.decode_execute(inst);
+        assert_eq!(-1, cpu.registers[12]);
+
+        // or x1, x0, x12
+        let inst = compose_rr(51, 6, 0, 1, 0, 12);
+        cpu.decode_execute(inst);
+        assert_eq!(-1, cpu.registers[1]);
+
+    }
+
+    #[test]
+    fn test_and() {
+        let mut cpu = setup_cpu();
+
+        // addi x12, x12, -1
+        let inst = compose_imm(19, 0, 12, 12, -1);
+        cpu.decode_execute(inst);
+        assert_eq!(-1, cpu.registers[12]);
+
+        // and x1, x12, x0
+        let inst = compose_rr(51, 7, 0, 1, 12, 0);
+        cpu.decode_execute(inst);
+        assert_eq!(0, cpu.registers[1]);
+
+    }
+
+
 
     #[test]
     fn test_addi() {
@@ -426,6 +570,21 @@ mod tests {
         cpu.decode_execute(inst);
         assert_eq!(cpu.registers[13], -8);
         assert_eq!(cpu.registers[1], 1);
+
+        // addi x2, x0, -1
+        let inst = compose_imm(19, 0, 2, 0, -1);
+        cpu.decode_execute(inst);
+        assert_eq!(-1, cpu.registers[2]);
+
+        // srli x2, x2, 1
+        let inst = compose_imm_f7(19, 5, 0, 2, 2, 1);
+        cpu.decode_execute(inst);
+        assert_eq!(0x7fffffff, cpu.registers[2]);
+
+        // addi x2, x2, 1
+        let inst = compose_imm(19, 0, 2, 2, 1);
+        cpu.decode_execute(inst);
+        assert_eq!(0x80000000 as u32, cpu.registers[2] as u32);
     }
 
     #[test]
@@ -464,13 +623,19 @@ mod tests {
     #[test]
     fn test_sltiu() {
         let mut cpu = setup_cpu();
+
         // addi x12, x0, 2047
         let inst = compose_imm(19, 0, 12, 0, 2047);
         cpu.decode_execute(inst);
-        assert_eq!(2047, cpu.registers[12]);
+        assert_eq!(2047, cpu.registers[12] as u32);
 
-        // sltiu x12, x12, 2096
-        let inst = compose_imm(19, 3, 12, 12, 2096);
+        // addi x12, x12, 2047
+        let inst = compose_imm(19, 0, 12, 12, 2047);
+        cpu.decode_execute(inst);
+        assert_eq!(4094, cpu.registers[12] as u32);
+
+        // sltiu x12, x12, 4095 
+        let inst = compose_imm(19, 3, 12, 12, 4095);
         cpu.decode_execute(inst);
         assert_eq!(1, cpu.registers[12]);
     }
@@ -587,5 +752,31 @@ mod tests {
         let inst = compose_imm(3, 1, 11, 2, 0);
         cpu.decode_execute(inst);
         assert_eq!(0x000007ff, cpu.registers[11]);
+    }
+
+    #[test]
+    fn test_auipc() {
+        let mut cpu = setup_cpu();
+        // auipc x5, 1<<18
+        let inst = compose_u(23, 5, 1 << 19);
+        cpu.decode_execute(inst);
+        assert_eq!(cpu.pc + (1 << 31), cpu.registers[5] as u32);
+    }
+
+    #[test]
+    fn test_lui() {
+        let mut cpu = setup_cpu();
+        // lui x5, 1<<19
+        let inst = compose_u(55, 5, 1 << 19);
+        cpu.decode_execute(inst);
+        assert_eq!((1 << 31), cpu.registers[5] as u32);
+    }
+
+    #[test]
+    fn test_jumps() {
+    }
+
+    #[test]
+    fn test_branches() {
     }
 }
