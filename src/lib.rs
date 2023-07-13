@@ -34,7 +34,7 @@ impl CPU {
         let sign = value & sign_mask;
         return if sign == 0 { value as i32 } else { (value | sign_mask) as i32 }
     }
-    pub fn check_alignment(value: u32) -> i32 {
+    pub fn check_alignment(value: i32) -> i32 {
         if value & 0x00000003 != 0 { panic!("CPU exception: instruction misaligned") } else { value as i32 }
     }
     pub fn run(&mut self) {
@@ -157,20 +157,20 @@ impl CPU {
             99 => {
                 let mut imm = 0;
                 imm |= (inst & SB_IMM20_4_1_MASK) >> 8;
-                imm |= (inst & SB_IMM20_10_5_MASK) >> 20;
-                imm |= (inst & SB_IMM20_11_MASK) << 2;
+                imm |= (inst & SB_IMM20_10_5_MASK) >> 21;
+                imm |= (inst & SB_IMM20_11_MASK) << 3;
                 imm |= (inst & SB_IMM20_12_MASK) >> 20;
-                imm = imm << 1;
+                let imm = CPU::sext(imm << 1, 0xfffff000);
                 let funct3 = (inst & FUNCT3_MASK) >> 12;
                 let rs1 = (inst & RS1_MASK) >> 15;
                 let rs2 = (inst & RS2_MASK) >> 20;
                 match funct3 {
-                    0 => self.pc = if self.registers[rs1 as usize] == self.registers[rs2 as usize] { ((self.pc as i32) + CPU::check_alignment(imm)) as u32 } else { self.pc },
-                    1 => self.pc = if self.registers[rs1 as usize] != self.registers[rs2 as usize] { ((self.pc as i32) + CPU::check_alignment(imm)) as u32 } else { self.pc },
-                    4 => self.pc = if self.registers[rs1 as usize] < self.registers[rs2 as usize] { ((self.pc as i32) + CPU::check_alignment(imm)) as u32 } else { self.pc },
-                    5 => self.pc = if self.registers[rs1 as usize] > self.registers[rs2 as usize] { ((self.pc as i32) + CPU::check_alignment(imm)) as u32 } else { self.pc },
-                    6 => self.pc = if (self.registers[rs1 as usize] as u32) > (self.registers[rs2 as usize] as u32) { ((self.pc as i32) + CPU::check_alignment(imm)) as u32 } else { self.pc },
-                    7 => self.pc = if (self.registers[rs1 as usize] as u32) < (self.registers[rs2 as usize] as u32) { ((self.pc as i32) + CPU::check_alignment(imm)) as u32 } else { self.pc },
+                    0 => self.pc = if self.registers[rs1 as usize] == self.registers[rs2 as usize] { ((self.pc as i32) + CPU::check_alignment(imm) - 4) as u32 } else { self.pc },
+                    1 => self.pc = if self.registers[rs1 as usize] != self.registers[rs2 as usize] { ((self.pc as i32) + CPU::check_alignment(imm) - 4) as u32 } else { self.pc },
+                    4 => self.pc = if self.registers[rs1 as usize] < self.registers[rs2 as usize] { ((self.pc as i32) + CPU::check_alignment(imm) - 4) as u32 } else { self.pc },
+                    5 => self.pc = if self.registers[rs1 as usize] >= self.registers[rs2 as usize] { ((self.pc as i32) + CPU::check_alignment(imm) - 4) as u32 } else { self.pc },
+                    6 => self.pc = if (self.registers[rs1 as usize] as u32) < (self.registers[rs2 as usize] as u32) { ((self.pc as i32) + CPU::check_alignment(imm) - 4) as u32 } else { self.pc },
+                    7 => self.pc = if (self.registers[rs1 as usize] as u32) >= (self.registers[rs2 as usize] as u32) { ((self.pc as i32) + CPU::check_alignment(imm) - 4) as u32 } else { self.pc },
                     _ => panic!("CPU exception: unrecognized funct3")
                 }
             }
@@ -179,21 +179,22 @@ impl CPU {
                 let rd = (inst & RD_MASK) >> 7;
                 let rs1 = (inst & RS1_MASK) >> 15;
                 let mut imm = ((inst & IMM12_MASK) as i32) >> 20;
-                imm = CPU::check_alignment(imm as u32);
+                imm = CPU::check_alignment(imm);
                 self.registers[rd as usize] = (self.pc + 4) as i32;
-                self.pc = (self.registers[rs1 as usize] + imm) as u32;
+                self.pc = (self.registers[rs1 as usize] + imm - 4) as u32;
             }
             // jal
             111 => {
                 let rd = (inst & RD_MASK) >> 7;
                 let mut imm = 0;
                 imm |= (inst & IMM20_10_1_MASK) >> 21;
-                imm |= (inst & IMM20_11_MASK) >> 20;
-                imm |= (inst & IMM20_19_12_MASK) >> 12;
-                imm |= (inst & IMM20_20_MASK) >> 11;
-                let imm = CPU::check_alignment(imm << 1);
+                imm |= (inst & IMM20_11_MASK) >> 10;
+                imm |= (inst & IMM20_19_12_MASK) >> 1;
+                imm |= (inst & IMM20_20_MASK) >> 12;
+                let mut imm = CPU::check_alignment((imm << 1) as i32);
+                imm = CPU::sext(imm as u32, 0xfff00000) as i32;
                 self.registers[rd as usize] = (self.pc + 4) as i32;
-                self.pc = ((self.pc as i32) + imm) as u32;
+                self.pc = ((self.pc as i32) + imm - 4) as u32;
             }
             _ => panic!("CPU exception: Unrecognized opcode")
         }
@@ -292,6 +293,37 @@ mod tests {
         inst |= opcode;
         inst |= rd << 7;
         inst |= (imm << 12) as u32;
+        return inst;
+    }
+
+    fn compose_j(opcode: u32, rd: u32, imm: u32) -> u32 {
+        let mut inst = 0;
+        inst |= opcode;
+        inst |= rd << 7;
+        let imm20 = (imm & 0x00080000) << 12;
+        inst |= imm20;
+        let imm10_1 = (imm & 0x000003ff) << 21;
+        inst |= imm10_1;
+        let imm11 = (imm & 0x00000400) << 10;
+        inst |= imm11;
+        let imm19_12 = (imm & 0x0007f800) << 1;
+        inst |= imm19_12;
+        return inst;
+    }
+    fn compose_b(opcode: u32, funct3: u32, rs1: u32, rs2: u32, imm: u32) -> u32 {
+        let mut inst = 0;
+        inst |= opcode;
+        let imm11 = (imm & 0x00000400) >> 3;
+        inst |= imm11;
+        let imm4_1 = (imm & 0x0000000f) << 8;
+        inst |= imm4_1;
+        inst |= funct3 << 12;
+        inst |= rs1 << 15;
+        inst |= rs2 << 20;
+        let imm10_5 = (imm & 0x000003f0) << 21;
+        inst |= imm10_5;
+        let imm12 = (imm & 0x00000800) << 20;
+        inst |= imm12;
         return inst;
     }
 
@@ -757,7 +789,7 @@ mod tests {
     #[test]
     fn test_auipc() {
         let mut cpu = setup_cpu();
-        // auipc x5, 1<<18
+        // auipc x5, 1<<19
         let inst = compose_u(23, 5, 1 << 19);
         cpu.decode_execute(inst);
         assert_eq!(cpu.pc + (1 << 31), cpu.registers[5] as u32);
@@ -774,9 +806,95 @@ mod tests {
 
     #[test]
     fn test_jumps() {
+        let mut cpu = setup_cpu();
+
+        // jal x1, -4
+        let initial_pc = cpu.pc;
+        let offset = -4;
+        let inst = compose_j(111, 1, offset as u32);
+        cpu.decode_execute(inst);
+        assert_eq!(initial_pc - 12, cpu.pc);
+
+        // lui x12, 0x00400
+        let inst = compose_u(55, 12, 0x00000400);
+        cpu.decode_execute(inst);
+        assert_eq!(initial_pc, cpu.registers[12] as u32);
+
+        // jalr x0, 0(x12)
+        let inst = compose_imm(103, 0, 0, 12, 0);
+        cpu.decode_execute(inst);
+        assert_eq!(initial_pc - 4, cpu.pc);
     }
 
     #[test]
     fn test_branches() {
+        let mut cpu = setup_cpu();
+        // addi x10, x0, 2047
+        let inst = compose_imm(19, 0, 10, 0, 2047);
+        cpu.decode_execute(inst);
+        assert_eq!(2047, cpu.registers[10]);
+
+        // addi x11, x0, 2043
+        let inst = compose_imm(19, 0, 11, 0, 2043);
+        cpu.decode_execute(inst);
+        assert_eq!(2043, cpu.registers[11]);
+
+        // addi x12, x0, 2047
+        let inst = compose_imm(19, 0, 12, 0, 2047);
+        cpu.decode_execute(inst);
+        assert_eq!(2047, cpu.registers[12]);
+
+        // beq x10, x11, -2
+        let offset = -2;
+        let inst = compose_b(99, 0, 10, 11, offset as u32);
+        let initial_pc = cpu.pc;
+        cpu.decode_execute(inst);
+        assert_eq!(initial_pc, cpu.pc);
+
+        // beq x10, x12, -2
+        let offset = -2;
+        let inst = compose_b(99, 0, 10, 12, offset as u32);
+        let initial_pc = cpu.pc;
+        cpu.decode_execute(inst);
+        assert_eq!(initial_pc-8, cpu.pc);
+
+        // bneq x10, x11, -2048
+        let offset = -2048;
+        let inst = compose_b(99, 1, 10, 11, offset as u32);
+        let initial_pc = cpu.pc;
+        cpu.decode_execute(inst);
+        assert_eq!(initial_pc-(4096)-4, cpu.pc);
+
+        // blt x10, x12, -2
+        let offset = -2;
+        let inst = compose_b(99, 4, 10, 12, offset as u32);
+        let initial_pc = cpu.pc;
+        cpu.decode_execute(inst);
+        assert_eq!(initial_pc, cpu.pc);
+
+        // bge x10, x12, -2
+        let offset = -2;
+        let inst = compose_b(99, 5, 10, 12, offset as u32);
+        let initial_pc = cpu.pc;
+        cpu.decode_execute(inst);
+        assert_eq!(initial_pc-8, cpu.pc);
+
+        // addi x13, x13, -1
+        let inst = compose_imm(19, 0, 13, 13, -1);
+        cpu.decode_execute(inst);
+        assert_eq!(-1, cpu.registers[13]);
+
+        // bltu x13, x0, -2
+        let offset = -2;
+        let inst = compose_b(99, 6, 13, 0, offset as u32);
+        let initial_pc = cpu.pc;
+        cpu.decode_execute(inst);
+        assert_eq!(initial_pc, cpu.pc);
+
+        // bgeu x13, x0, -2
+        let offset = -2;
+        let inst = compose_b(99, 7, 13, 0, offset as u32);
+        let initial_pc = cpu.pc;
+        cpu.decode_execute(inst);
+        assert_eq!(initial_pc-8, cpu.pc);
     }
-}
