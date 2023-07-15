@@ -45,6 +45,7 @@ impl CPU {
         // First fetch instruction from initial PC
         let mut current_inst = self.fetch();
         while current_inst != 0 {
+            // Execute current instruction, then increment PC
             self.decode_execute(current_inst);
             self.pc += 4;
             current_inst = self.fetch();
@@ -163,7 +164,6 @@ impl CPU {
             }
             // branches: beq, bne, blt, bge, bltu, bgeu
             99 => {
-                // The encoding for the immediate value is weird..
                 let mut imm = 0;
                 imm |= (inst & SB_IMM20_4_1_MASK) >> 8;
                 imm |= (inst & SB_IMM20_10_5_MASK) >> 21;
@@ -174,6 +174,7 @@ impl CPU {
                 let rs1 = (inst & RS1_MASK) >> 15;
                 let rs2 = (inst & RS2_MASK) >> 20;
                 match funct3 {
+                    // We subtract immediate by 4 to simplify updating the PC
                     0 => self.pc = ((self.pc as i32) + if self.registers[rs1 as usize] == self.registers[rs2 as usize] { imm - 4 } else { 0 }) as u32,
                     1 => self.pc = ((self.pc as i32) + if self.registers[rs1 as usize] != self.registers[rs2 as usize] { imm - 4 } else { 0 }) as u32,
                     4 => self.pc = ((self.pc as i32) + if self.registers[rs1 as usize] < self.registers[rs2 as usize] { imm - 4 } else { 0 }) as u32,
@@ -207,6 +208,7 @@ impl CPU {
             }
             _ => panic!("CPU exception: Unrecognized opcode")
         }
+        // Ensure x0 is always 0
         self.registers[0] = 0;
     }
     pub fn rr_op<F>(&mut self, rd: u32, rs1: u32, rs2: u32, op: F)
@@ -261,23 +263,23 @@ impl CPU {
             self.pc += 4;
             current_inst = self.fetch();
             instruction_count += 1;
-            println!("Instruction count: {}", instruction_count);
-            println!("----------------------------------------------------------------------");
+            println!("Instruction count: {}\n", instruction_count);
+            println!("----------------------------------------------------------------------\n");
             thread::sleep(sleep_ms);
         }
     }
     fn dump_registers(&self) -> String {
         let mut message = String::new();
         for (index, register) in self.registers.iter().enumerate() {
-            message.push_str(&format!("x{}: {} | ", index, register));
-            if index % 4 == 0 {
+            let reg_str = &format!("x{}", index);
+            message.push_str(&format!("{reg_str:3}: {:10} | ", register));
+            if (index+1) % 4 == 0 {
                 message.push('\n');
             }
         }
         return message;
     }
 }
-
 
 fn disassemble(inst: u32) -> String {
     let opcode = inst & OPCODE_MASK;
