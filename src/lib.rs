@@ -334,7 +334,7 @@ fn disassemble(inst: u32) -> String {
                     match funct7 {
                         0 => format!("srli x{}, x{}, {}", rd, rs1, imm5),
                         32 => format!("srlai x{}, x{}, {}", rd, rs1, imm5),
-                        _ => panic!("CPU exception: unrecognized funct7")
+                        _ => format!("CPU exception: unrecognized funct7")
                     }
                 }
                 6 => format!("ori x{}, x{}, {}", rd, rs1, CPU::sext(imm12, 0xfffff800)),
@@ -354,7 +354,7 @@ fn disassemble(inst: u32) -> String {
                     match funct7 {
                         0 => format!("add x{}, x{}, x{}", rd, rs1, rs2),
                         32 => format!("sub x{}, x{}, x{}", rd, rs1, rs2),
-                        _ => panic!("CPU exception: unrecognized funct7")
+                        _ => format!("CPU exception: unrecognized funct7")
                     }
                 }
                 1 => format!("sll x{}, x{}, x{}", rd, rs1, rs2),
@@ -371,7 +371,6 @@ fn disassemble(inst: u32) -> String {
                 6 => format!("or x{}, x{}, x{}", rd, rs1, rs2),
                 7 => format!("and x{}, x{}, x{}", rd, rs1, rs2),
                 _ => format!("Unrecognized funct3")
-                // _ => panic!("CPU exception: unrecognized funct3")
             }
         }
         // auipc 
@@ -425,6 +424,6 @@ fn disassemble(inst: u32) -> String {
             // let imm = (imm << 1) as i32;
             format!("jal x{}, {}", rd, CPU::sext(imm, 0xfff80000))
         }
-        _ => panic!("CPU exception: Unrecognized opcode")
+        _ => format!("CPU exception: Unrecognized opcode")
     }
 }
